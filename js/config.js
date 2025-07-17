@@ -16,7 +16,7 @@ window.TelegramExporter.config = {
   // The maximum number of scroll attempts before giving up.
   maxScrollAttempts: 25,
   // CSS selectors for identifying key elements in the Telegram web interface.
-  messageSelector: ".message-list-item, .Message",
+  messageSelector: ".message-list-item, .Message:not(.SponsoredMessage)",
   contentSelector: ".content-inner, .content",
   dateGroupSelector: ".message-date-group .sticky-date",
   forwardedFromSelector:
@@ -53,8 +53,7 @@ window.TelegramExporter.selectors = {
   chatName: ".chat-info .chat-title, .ChatInfo .title",
   messageList: ".messages-layout, .MessageList",
   sender: ".message-author, .MessageSender",
-  time: ".time, .MessageMeta time, .message-time",
-  timestamp: "time[datetime]",
+  time: ".message-time",
   avatar: ".Avatar img, .avatar-media",
   reactions: ".Reactions, .message-reactions",
   forwardedIcon: ".icon-share-filled, .forward-icon",

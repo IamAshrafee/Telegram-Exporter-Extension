@@ -17,11 +17,6 @@ window.TelegramExporter.utils = {
         ?.querySelector(config.dateGroupSelector)
         ?.textContent.trim();
 
-      const timestampEl = messageEl.querySelector(selectors.timestamp);
-      const messageDate = timestampEl
-        ? new Date(timestampEl.getAttribute("datetime"))
-        : null;
-
       const forwardedFrom = messageEl
         .querySelector(config.forwardedFromSelector)
         ?.textContent.trim();
@@ -57,15 +52,11 @@ window.TelegramExporter.utils = {
         senderAvatar: avatar,
         forwardedFrom,
         isForwarded,
-        date: messageDate?.toLocaleDateString() || dateText || null,
+        date: dateText || null,
         time:
-          messageDate?.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }) ||
           messageEl.querySelector(selectors.time)?.textContent.trim() ||
           null,
-        timestamp: messageDate?.toISOString() || null,
+        timestamp: null,
         hasReactions,
         messageId: messageEl.getAttribute("data-message-id") || null,
         ...media,
@@ -103,6 +94,20 @@ window.TelegramExporter.utils = {
       if (!contentEl) return null;
 
       const clone = contentEl.cloneNode(true);
+
+      // Handle custom emojis by replacing them with their alt text
+      const customEmojis = clone.querySelectorAll('.custom-emoji, .emoji');
+      customEmojis.forEach(emoji => {
+        const altText = emoji.getAttribute('data-alt') || '';
+        emoji.replaceWith(document.createTextNode(altText));
+      });
+
+      // Add line breaks after bold elements
+      const boldElements = clone.querySelectorAll('strong[data-entity-type="MessageEntityBold"]');
+      boldElements.forEach(strong => {
+        strong.after(document.createElement('br'));
+      });
+
       const unwantedElements = clone.querySelectorAll(
         ".Reactions, .message-action-buttons, .CommentButton, .quick-reaction, canvas, .reply-markup"
       );
@@ -174,10 +179,7 @@ window.TelegramExporter.utils = {
         link.replaceWith(document.createTextNode(replacement));
       });
 
-      let text = clone.textContent
-        .replace(/\s+/g, " ")
-        .replace(/\s+([.,!?])/g, "$1")
-        .trim();
+      let text = clone.innerText.trim();
 
       if (mediaPlaceholders.length > 0) {
         text += `\n[${mediaPlaceholders.join(", ")}]`;

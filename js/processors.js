@@ -331,7 +331,7 @@ window.TelegramExporter.processors = {
               <div class="message-header">
                   <div class="sender-info">
                       <span class="sender-name">${utils.escapeHtml(
-                        msg.metadata.sender || "Unknown"
+                        msg.metadata.sender || ""
                       )}</span>
                   </div>
                   <div class="message-meta">
