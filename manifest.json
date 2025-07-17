@@ -29,7 +29,13 @@
         "https://webk.telegram.org/*",
         "https://webz.telegram.org/*"
       ],
-      "js": ["js/content.js"],
+      "js": [
+        "js/config.js",
+        "js/modules/utils.js",
+        "js/modules/dom-utils.js",
+        "js/modules/processors.js",
+        "js/content.js"
+      ],
       "css": ["css/style.css"]
     }
   ],

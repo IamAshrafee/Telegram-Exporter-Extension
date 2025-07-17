@@ -1,43 +1,51 @@
-'use strict';
+// This script handles the logic for the extension's popup.
 
-document.addEventListener('DOMContentLoaded', () => {
-  const exportTxt = document.getElementById('export-txt');
-  const exportHtml = document.getElementById('export-html');
-  const exportJson = document.getElementById('export-json');
-  const darkMode = document.getElementById('dark-mode');
+"use strict";
 
-  exportTxt.addEventListener('click', () => {
+document.addEventListener("DOMContentLoaded", () => {
+  // Get references to the UI elements.
+  const exportTxt = document.getElementById("export-txt");
+  const exportHtml = document.getElementById("export-html");
+  const exportJson = document.getElementById("export-json");
+  const darkMode = document.getElementById("dark-mode");
+
+  // Add event listeners to the export buttons.
+  exportTxt.addEventListener("click", () => {
+    // When a button is clicked, execute the exportMessages function in the active tab.
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
-        function: () => window.exportMessages('txt'),
+        function: () => window.exportMessages("txt"),
       });
     });
   });
 
-  exportHtml.addEventListener('click', () => {
+  exportHtml.addEventListener("click", () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
-        function: () => window.exportMessages('html'),
+        function: () => window.exportMessages("html"),
       });
     });
   });
 
-  exportJson.addEventListener('click', () => {
+  exportJson.addEventListener("click", () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
-        function: () => window.exportMessages('json'),
+        function: () => window.exportMessages("json"),
       });
     });
   });
 
-  darkMode.addEventListener('change', () => {
+  // Add an event listener to the dark mode toggle.
+  darkMode.addEventListener("change", () => {
+    // Save the dark mode setting to storage.
     chrome.storage.sync.set({ darkMode: darkMode.checked });
   });
 
-  chrome.storage.sync.get('darkMode', (data) => {
+  // Load the dark mode setting from storage.
+  chrome.storage.sync.get("darkMode", (data) => {
     darkMode.checked = data.darkMode;
   });
 });
