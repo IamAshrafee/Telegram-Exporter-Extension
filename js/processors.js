@@ -21,7 +21,7 @@ window.TelegramExporter.processors = {
         const metadata = utils.extractMetadata(messageEl);
         const messageText = utils.cleanMessageText(messageEl);
 
-        if (messageText) {
+        if (messageText || Object.values(metadata).some(v => v)) {
           allText += `=== Message ${i + index + 1} ===\n`;
           if (metadata.date) allText += `📅 Date: ${metadata.date}\n`;
           if (metadata.time) allText += `🕒 Time: ${metadata.time}\n`;
@@ -40,7 +40,11 @@ window.TelegramExporter.processors = {
             if (metadata.hasSticker) allText += `🏷️ Sticker attached\n`;
           }
 
-          allText += `💬 Content: ${messageText}\n\n`;
+          if (messageText) {
+            allText += `💬 Content: ${messageText}\n\n`;
+          } else {
+            allText += `\n`;
+          }
         }
       }
       await utils.randomDelay();
@@ -87,6 +91,139 @@ window.TelegramExporter.processors = {
 
     participantCount = participants.size;
 
+    const styles = `
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+        }
+        .dark {
+            background-color: #18191a;
+            color: #e4e6eb;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .dark .header {
+            border-bottom-color: #3e4042;
+        }
+        .chat-title {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 0;
+        }
+        .export-info {
+            font-size: 0.9em;
+            color: #65676b;
+            margin-top: 5px;
+        }
+        .dark .export-info {
+            color: #b0b3b8;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-box {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #65676b;
+        }
+        .dark .stat-label {
+            color: #b0b3b8;
+        }
+        .messages-container {
+            margin-top: 20px;
+        }
+        .message {
+            background-color: #fff;
+            border-radius: 18px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            max-width: 75%;
+            word-wrap: break-word;
+        }
+        .dark .message {
+            background-color: #3e4042;
+        }
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .sender-name {
+            font-weight: bold;
+            color: #005cff;
+        }
+        .dark .sender-name {
+            color: #2d88ff;
+        }
+        .message-meta {
+            font-size: 0.8em;
+            color: #65676b;
+        }
+        .dark .message-meta {
+            color: #b0b3b8;
+        }
+        .forwarded-from {
+            font-size: 0.8em;
+            color: #65676b;
+            margin-bottom: 5px;
+        }
+        .dark .forwarded-from {
+            color: #b0b3b8;
+        }
+        .message-content {
+            font-size: 1em;
+            line-height: 1.4;
+        }
+        .message-media img, .message-media video {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        .media-placeholder {
+            background-color: #f0f2f5;
+            border: 1px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #65676b;
+            margin-top: 10px;
+        }
+        .dark .media-placeholder {
+            background-color: #242526;
+            border-color: #3e4042;
+            color: #b0b3b8;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.8em;
+            color: #65676b;
+        }
+        .dark .footer {
+            color: #b0b3b8;
+        }
+    `;
+
     const html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -96,9 +233,7 @@ window.TelegramExporter.processors = {
           <title>Telegram Export: ${utils.escapeHtml(
             chatName || "Chat"
           )}</title>
-          <link rel="stylesheet" href="chrome-extension://${
-            chrome.runtime.id
-          }/css/style.css">
+          <style>${styles}</style>
       </head>
       <body>
           <div class="container">
@@ -254,7 +389,7 @@ window.TelegramExporter.processors = {
         const metadata = utils.extractMetadata(messageEl);
         const messageText = utils.cleanMessageText(messageEl);
 
-        if (messageText) {
+        if (messageText || Object.values(metadata).some(v => v)) {
           if (metadata.sender) participants.add(metadata.sender);
           messages.push({
             id: i + 1,

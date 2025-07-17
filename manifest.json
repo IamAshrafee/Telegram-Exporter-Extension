@@ -31,9 +31,9 @@
       ],
       "js": [
         "js/config.js",
-        "js/modules/utils.js",
-        "js/modules/dom-utils.js",
-        "js/modules/processors.js",
+        "js/utils.js",
+        "js/dom-utils.js",
+        "js/processors.js",
         "js/content.js"
       ],
       "css": ["css/style.css"]

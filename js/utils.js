@@ -9,6 +9,9 @@ window.TelegramExporter.utils = {
   extractMetadata: function (messageEl) {
     const { config, selectors } = window.TelegramExporter;
     try {
+        if (!messageEl) {
+            return {};
+        }
       const dateGroup = messageEl.closest(".message-date-group");
       const dateText = dateGroup
         ?.querySelector(config.dateGroupSelector)
@@ -161,21 +164,7 @@ window.TelegramExporter.utils = {
           linkText.toLowerCase() === "click" ||
           linkText.toLowerCase() === "click here"
         ) {
-          const prevSibling = link.previousSibling;
-          const prevText =
-            prevSibling?.nodeType === Node.TEXT_NODE
-              ? prevSibling.textContent.trim()
-              : "";
-
-          if (config.mergeAdjacentLinks && prevText) {
-            replacement = `${prevText} ${config.linkFormat.replace(
-              "{url}",
-              url
-            )}`;
-            if (prevSibling) prevSibling.remove();
-          } else {
             replacement = config.linkFormat.replace("{url}", url);
-          }
         } else if (linkText !== url) {
           replacement = `[${linkText}](${url})`;
         } else {
@@ -257,16 +246,22 @@ window.TelegramExporter.utils = {
         }
 
         const prevScrollHeight = messageList.scrollHeight;
-        messageList.scrollTop = messageList.scrollHeight;
+        messageList.scrollTop = 0;
 
-        scrollAttempts++;
-        if (
-          scrollAttempts >= config.maxScrollAttempts ||
-          prevScrollHeight === messageList.scrollHeight
-        ) {
-          clearInterval(scrollInterval);
-          resolve();
-        }
+        setTimeout(() => {
+            if (messageList.scrollTop === 0) {
+                messageList.scrollTop = messageList.scrollHeight;
+            }
+
+            scrollAttempts++;
+            if (
+              scrollAttempts >= config.maxScrollAttempts ||
+              prevScrollHeight === messageList.scrollHeight
+            ) {
+              clearInterval(scrollInterval);
+              resolve();
+            }
+        }, 500);
       }, config.autoScrollInterval);
     });
   },

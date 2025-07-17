@@ -30,8 +30,7 @@ window.TelegramExporter.config = {
   includeMessageCount: true,
   // Whether to include the export date in the output.
   includeExportDate: true,
-  // The default theme for the exported HTML.
-  darkMode: true,
+  
   // Whether to include media in the export.
   includeMedia: true,
   // Whether to display media as thumbnails in the HTML export.

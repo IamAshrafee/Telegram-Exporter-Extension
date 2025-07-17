@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const exportTxt = document.getElementById("export-txt");
   const exportHtml = document.getElementById("export-html");
   const exportJson = document.getElementById("export-json");
-  const darkMode = document.getElementById("dark-mode");
 
   // Add event listeners to the export buttons.
   exportTxt.addEventListener("click", () => {
@@ -38,14 +37,4 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Add an event listener to the dark mode toggle.
-  darkMode.addEventListener("change", () => {
-    // Save the dark mode setting to storage.
-    chrome.storage.sync.set({ darkMode: darkMode.checked });
-  });
-
-  // Load the dark mode setting from storage.
-  chrome.storage.sync.get("darkMode", (data) => {
-    darkMode.checked = data.darkMode;
-  });
 });
