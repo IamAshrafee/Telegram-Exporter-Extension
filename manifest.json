@@ -1,0 +1,42 @@
+
+{
+  "manifest_version": 3,
+  "name": "Telegram Exporter",
+  "description": "Export Telegram messages with media support to TXT, HTML, or JSON",
+  "version": "1.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.telegram.org/*",
+        "https://webk.telegram.org/*",
+        "https://webz.telegram.org/*"
+      ],
+      "js": ["js/content.js"],
+      "css": ["css/style.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["css/style.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
