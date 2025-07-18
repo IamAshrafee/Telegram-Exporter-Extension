@@ -41,7 +41,7 @@ window.TelegramExporter.processors = {
           }
 
           if (messageText) {
-            allText += `💬 Content: ${messageText}\n\n`;
+            allText += `💬 Content: ${messageText.replace(/\n/g, '\n')}\n\n`;
           } else {
             allText += `\n`;
           }
@@ -81,7 +81,7 @@ window.TelegramExporter.processors = {
           if (metadata.sender) participants.add(metadata.sender);
           messages.push({
             metadata,
-            content: messageText,
+            content: messageText.replace(/\n/g, '<br>'),
             position: messages.length + 1,
           });
         }
@@ -156,7 +156,7 @@ window.TelegramExporter.processors = {
             border-radius: 18px;
             padding: 12px 16px;
             margin-bottom: 10px;
-            max-width: 75%;
+            max-width: 100%;
             word-wrap: break-word;
         }
         .dark .message {
@@ -354,9 +354,9 @@ window.TelegramExporter.processors = {
                   : ""
               }
               ${mediaHTML}
-              <div class="message-content">${utils.escapeHtml(
+              <div class="message-content">${
                 msg.content
-              )}</div>
+              }</div>
           </div>`;
       })
       .join("");
@@ -394,7 +394,7 @@ window.TelegramExporter.processors = {
           messages.push({
             id: i + 1,
             ...metadata,
-            content: messageText,
+            content: messageText ? messageText.replace(/\n/g, '\n') : null,
             mediaInfo: config.includeMedia
               ? {
                   hasImage: metadata.hasImage,

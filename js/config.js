@@ -17,7 +17,7 @@ window.TelegramExporter.config = {
   maxScrollAttempts: 25,
   // CSS selectors for identifying key elements in the Telegram web interface.
   messageSelector: ".message-list-item, .Message:not(.SponsoredMessage)",
-  contentSelector: ".content-inner, .content",
+  contentSelector: ".text-content",
   dateGroupSelector: ".message-date-group .sticky-date",
   forwardedFromSelector:
     ".forward-title-container + .message-title-name .sender-title",

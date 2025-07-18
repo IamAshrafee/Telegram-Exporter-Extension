@@ -95,6 +95,12 @@ window.TelegramExporter.utils = {
 
       const clone = contentEl.cloneNode(true);
 
+      // Remove the MessageMeta element
+      const messageMeta = clone.querySelector('.MessageMeta');
+      if (messageMeta) {
+        messageMeta.remove();
+      }
+
       // Handle custom emojis by replacing them with their alt text
       const customEmojis = clone.querySelectorAll('.custom-emoji, .emoji');
       customEmojis.forEach(emoji => {
@@ -179,13 +185,26 @@ window.TelegramExporter.utils = {
         link.replaceWith(document.createTextNode(replacement));
       });
 
-      let text = clone.innerText.trim();
+      let text = '';
+      const childNodes = Array.from(clone.childNodes);
+
+      childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          text += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.tagName === 'BR') {
+            text += '\n';
+          } else {
+            text += node.textContent;
+          }
+        }
+      });
 
       if (mediaPlaceholders.length > 0) {
         text += `\n[${mediaPlaceholders.join(", ")}]`;
       }
 
-      return text;
+      return text.trim();
     } catch (e) {
       console.warn(`[Telegram Exporter] Error cleaning message text: ${e}`);
       return null;
