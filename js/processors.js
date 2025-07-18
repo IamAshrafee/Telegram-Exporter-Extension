@@ -81,7 +81,7 @@ window.TelegramExporter.processors = {
           if (metadata.sender) participants.add(metadata.sender);
           messages.push({
             metadata,
-            content: messageText.replace(/\n/g, '<br>'),
+            content: messageText,
             position: messages.length + 1,
           });
         }

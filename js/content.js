@@ -25,6 +25,7 @@
    * @param {string} format - The format to export to (txt, html, or json).
    */
   async function exportMessages(format = "txt") {
+    window.TelegramExporter.currentExportFormat = format;
     try {
       dom.showLoading(true, `Preparing ${format.toUpperCase()} export...`);
       const chatName = utils.getChatName();
@@ -79,6 +80,7 @@
       dom.showAlert("Export failed! Check console for details.", "error");
     } finally {
       dom.showLoading(false);
+      delete window.TelegramExporter.currentExportFormat;
     }
   }
 
