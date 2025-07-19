@@ -9,7 +9,7 @@
 
 body {
   width: max-content;
-  padding: 10px 15px;
+  padding: 10px 20px;
   background-color: #f2f9ff;
   font-family: sans-serif;
 }
@@ -17,7 +17,7 @@ body {
 .container {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 h1 {
@@ -45,7 +45,7 @@ button {
 }
 
 button:hover {
-  background-color: #333;
+  background-color: #292929;
 }
 
 .toggle-group {
@@ -53,6 +53,29 @@ button:hover {
   align-items: center;
   justify-content: center;
   gap: 5px;
+}
+
+.author-credit{
+  font-size: 12px;
+  text-align: center;
+  color: #666;
+  margin-top: 16px;
+}
+
+.author-email {
+  font-size: 12px;
+  text-align: center;
+  color: #666;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+a{
+  color: #3498db;
+  text-decoration: none;
 }
 
 #telegram-export-loader {
