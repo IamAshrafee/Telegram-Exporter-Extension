@@ -1,40 +1,22 @@
-// This script handles the logic for the extension's popup.
-
 "use strict";
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Get references to the UI elements.
   const exportTxt = document.getElementById("export-txt");
   const exportHtml = document.getElementById("export-html");
   const exportJson = document.getElementById("export-json");
 
-  // Add event listeners to the export buttons.
-  exportTxt.addEventListener("click", () => {
-    // When a button is clicked, execute the exportMessages function in the active tab.
+  function sendMessageToContentScript(format) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        function: () => window.exportMessages("txt"),
-      });
+      if (tabs.length > 0) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: "export",
+          format: format,
+        });
+      }
     });
-  });
+  }
 
-  exportHtml.addEventListener("click", () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        function: () => window.exportMessages("html"),
-      });
-    });
-  });
-
-  exportJson.addEventListener("click", () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        function: () => window.exportMessages("json"),
-      });
-    });
-  });
-
+  exportTxt.addEventListener("click", () => sendMessageToContentScript("txt"));
+  exportHtml.addEventListener("click", () => sendMessageToContentScript("html"));
+  exportJson.addEventListener("click", () => sendMessageToContentScript("json"));
 });

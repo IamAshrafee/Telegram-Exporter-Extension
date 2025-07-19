@@ -1,427 +1,189 @@
-// This file contains the core logic for processing messages into different formats.
-
 window.TelegramExporter.processors = {
-  /**
-   * Processes an array of message elements into a plain text string.
-   * @param {Array<HTMLElement>} messageElements - The message elements to process.
-   * @returns {Promise<string>} - A promise that resolves with the processed text.
-   */
-  processMessagesToTXT: async function (messageElements) {
-    const { config, utils } = window.TelegramExporter;
+  processMessagesToTXT: async function (messages) {
+    const { utils } = window.TelegramExporter;
     let allText = "";
 
-    if (config.includeExportDate) {
-      allText += `=== Telegram Chat Export ===\n`;
-      allText += `Export Date: ${new Date().toLocaleString()}\n\n`;
-    }
+    allText += `=== Telegram Chat Export ===\n`;
+    allText += `Export Date: ${new Date().toLocaleString()}\n\n`;
 
-    for (let i = 0; i < messageElements.length; i += config.chunkSize) {
-      const chunk = Array.from(messageElements).slice(i, i + config.chunkSize);
-      for (const [index, messageEl] of chunk.entries()) {
-        const metadata = utils.extractMetadata(messageEl);
-        const messageText = utils.cleanMessageText(messageEl);
-
-        if (messageText || Object.values(metadata).some(v => v)) {
-          allText += `=== Message ${i + index + 1} ===\n`;
-          if (metadata.date) allText += `📅 Date: ${metadata.date}\n`;
-          if (metadata.time) allText += `🕒 Time: ${metadata.time}\n`;
-          if (metadata.sender) allText += `👤 From: ${metadata.sender}\n`;
-          if (metadata.forwardedFrom)
-            allText += `↩️ Forwarded from: ${metadata.forwardedFrom}\n`;
-
-          if (config.includeMedia) {
-            if (metadata.hasImage)
-              allText += `🖼️ Image: ${metadata.mediaAlt || "No description"}\n`;
-            if (metadata.hasVideo) allText += `🎥 Video attached\n`;
-            if (metadata.hasGif) allText += `🖼️ GIF attached\n`;
-            if (metadata.hasDocument)
-              allText += `📄 File: ${metadata.documentName || "No name"}\n`;
-            if (metadata.hasAudio) allText += `🎵 Audio attached\n`;
-            if (metadata.hasSticker) allText += `🏷️ Sticker attached\n`;
-          }
-
-          if (messageText) {
-            allText += `💬 Content: ${messageText.replace(/\n/g, '\n')}\n\n`;
-          } else {
-            allText += `\n`;
-          }
-        }
+    for (const [index, message] of messages.entries()) {
+      allText += `--- Message ${index + 1} ---\n`;
+      if (message.date) allText += `Date: ${message.date}\n`;
+      if (message.time) allText += `Time: ${message.time}\n`;
+      if (message.sender) allText += `From: ${message.sender}\n`;
+      if (message.isForwarded) allText += `Forwarded from: ${message.forwardedFrom || 'Unknown'}\n`;
+      if (message.isReply && message.replyInfo) {
+        allText += `Replying to ${message.replyInfo.sender}: \"${message.replyInfo.text}\"\n`;
       }
-      await utils.randomDelay();
+      if (message.reactions && message.reactions.length > 0) {
+        allText += `Reactions: ${message.reactions.map(r => `${r.name} (${r.count})`).join(', ')}\n`;
+      }
+
+      if (message.text) {
+        allText += `\n${message.text}\n\n`;
+      } else {
+        allText += `\n`;
+      }
     }
 
-    if (config.includeMessageCount) {
-      allText += `\n=== Export Summary ===\n`;
-      allText += `Total Messages: ${messageElements.length}\n`;
-      allText += `Export Completed: ${new Date().toLocaleString()}\n`;
-    }
+    allText += `\n=== Export Summary ===\n`;
+    allText += `Total Messages: ${messages.length}\n`;
 
     return allText;
   },
 
-  /**
-   * Processes an array of message elements into an HTML string.
-   * @param {Array<HTMLElement>} messageElements - The message elements to process.
-   * @param {string} chatName - The name of the chat.
-   * @returns {Promise<string>} - A promise that resolves with the processed HTML.
-   */
-  processMessagesToHTML: async function (messageElements, chatName = "") {
-    const { config, utils } = window.TelegramExporter;
-    const messages = [];
-    let participantCount = 0;
-    const participants = new Set();
+  processMessagesToHTML: async function (messages, chatName = "") {
+    const { utils, selectors } = window.TelegramExporter;
+    const participants = new Set(messages.map((msg) => msg.sender));
 
-    for (let i = 0; i < messageElements.length; i += config.chunkSize) {
-      const chunk = Array.from(messageElements).slice(i, i + config.chunkSize);
-      for (const messageEl of chunk) {
-        const metadata = utils.extractMetadata(messageEl);
-        const messageText = utils.cleanMessageText(messageEl);
+    let messagesHTML = "";
+    for (const msg of messages) {
+      let contentHTML = msg.html;
 
-        if (messageText) {
-          if (metadata.sender) participants.add(metadata.sender);
-          messages.push({
-            metadata,
-            content: messageText,
-            position: messages.length + 1,
-          });
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = contentHTML;
+      tempDiv.querySelectorAll(selectors.emoji.standard).forEach((emojiEl) => {
+        if (emojiEl.src.includes("img-apple-64")) {
+          emojiEl.src = `https://web.telegram.org/a/${emojiEl.src.substring(emojiEl.src.indexOf('img-apple-64'))}`;
         }
+      });
+      contentHTML = tempDiv.innerHTML;
+
+      let mediaHTML = "";
+      if (msg.type === "media" && msg.media) {
+        if (msg.media.type === "image") {
+          mediaHTML = `<div class=\"mt-3\"><img src=\"${msg.media.src}\" alt=\"Image\" class=\"rounded-lg max-w-full h-auto\"></div>`;
+        } else if (msg.media.type === "video") {
+          mediaHTML = `<div class=\"mt-3\"><video controls src=\"${msg.media.src}\" class=\"rounded-lg max-w-full h-auto\"></video><div class=\"text-xs text-gray-500 mt-1\">Duration: ${msg.media.duration}</div></div>`;
+        }
+      } else if (msg.type === "poll" && msg.poll) {
+        mediaHTML = `<div class=\"mt-3 border-l-4 border-gray-700 pl-4 py-3 bg-gray-800/50 rounded-r-lg transition hover:bg-gray-800\">
+          <div class=\"font-semibold text-gray-200\">${utils.escapeHtml(msg.poll.question)}</div>
+          <div class=\"mt-2 space-y-1\">
+            ${msg.poll.options.map((opt) => `
+              <div class=\"flex justify-between items-center text-sm\">
+                <span class=\"text-gray-400\">${utils.escapeHtml(opt.text)}</span>
+                <span class=\"text-gray-500 font-medium\">${utils.escapeHtml(opt.percent || "")}<\/span>
+              <\/div>`).join("")}
+          <\/div>
+        <\/div>`;
+      } else if (msg.type === "file" && msg.file) {
+        mediaHTML = `<div class=\"mt-3 bg-gray-800/50 border border-gray-700/80 rounded-lg p-3 flex items-center space-x-4 transition hover:bg-gray-800\">
+          <div class=\"text-gray-500\"><svg class=\"w-8 h-8\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\"></path><\/svg><\/div>
+          <div>
+            <div class=\"font-semibold text-gray-200\">${utils.escapeHtml(msg.file.title)}</div>
+            <div class=\"text-sm text-gray-500\">${utils.escapeHtml(msg.file.subtitle)}</div>
+          </div>
+        </div>`;
       }
-      await utils.randomDelay();
+      
+      const reactionsHTML = msg.reactions && msg.reactions.length > 0 
+        ? `<div class=\"mt-3 text-xs text-gray-500 pt-3 border-t border-gray-700/50 flex flex-wrap gap-2\">
+            ${msg.reactions.map(r => `<span class=\"bg-gray-700/50 rounded-full px-3 py-1 text-gray-400\">${utils.escapeHtml(r.name)} ${utils.escapeHtml(r.count)}<\/span>`).join('')}
+           <\/div>` 
+        : "";
+
+      const replyHTML = msg.isReply && msg.replyInfo
+        ? `<div class=\"mb-3 border-l-4 border-gray-600 pl-3 text-sm\">
+             <div class=\"font-semibold text-gray-400\">Reply to ${utils.escapeHtml(msg.replyInfo.sender)}<\/div>
+             <div class=\"text-gray-500 truncate\">${utils.escapeHtml(msg.replyInfo.text)}<\/div>
+           <\/div>`
+        : "";
+        
+      const forwardedHTML = msg.isForwarded
+        ? `<div class=\"text-xs text-gray-500 mb-2\">${utils.escapeHtml(msg.forwardedFrom)}<\/div>`
+        : "";
+
+      messagesHTML += `
+        <div class=\"bg-gray-800/80 rounded-xl p-5 mb-4 shadow-lg border border-gray-700/50 transition-all duration-300 hover:shadow-2xl hover:border-gray-700\">
+          <div class=\"flex justify-between items-center mb-3\">
+            <div class=\"flex items-center space-x-3\">
+              <span class=\"font-bold text-cyan-400\">${utils.escapeHtml(msg.sender)}<\/span>
+            <\/div>
+            <span class=\"text-xs text-gray-600 font-mono\">${utils.escapeHtml(msg.date)} at ${utils.escapeHtml(msg.time)}<\/span>
+          <\/div>
+          ${forwardedHTML}
+          ${replyHTML}
+          <div class=\"prose prose-sm prose-invert max-w-none\">${contentHTML}<\/div>
+          ${mediaHTML}
+          ${reactionsHTML}
+        <\/div>`;
     }
-
-    participantCount = participants.size;
-
-    const styles = `
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            background-color: #f0f2f5;
-            color: #1c1e21;
-        }
-        .dark {
-            background-color: #18191a;
-            color: #e4e6eb;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            text-align: center;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #ddd;
-        }
-        .dark .header {
-            border-bottom-color: #3e4042;
-        }
-        .chat-title {
-            font-size: 2em;
-            font-weight: bold;
-            margin: 0;
-        }
-        .export-info {
-            font-size: 0.9em;
-            color: #65676b;
-            margin-top: 5px;
-        }
-        .dark .export-info {
-            color: #b0b3b8;
-        }
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .stat-box {
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 1.5em;
-            font-weight: bold;
-        }
-        .stat-label {
-            font-size: 0.9em;
-            color: #65676b;
-        }
-        .dark .stat-label {
-            color: #b0b3b8;
-        }
-        .messages-container {
-            margin-top: 20px;
-        }
-        .message {
-            background-color: #fff;
-            border-radius: 18px;
-            padding: 12px 16px;
-            margin-bottom: 10px;
-            max-width: 100%;
-            word-wrap: break-word;
-        }
-        .dark .message {
-            background-color: #3e4042;
-        }
-        .message-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .sender-name {
-            font-weight: bold;
-            color: #005cff;
-        }
-        .dark .sender-name {
-            color: #2d88ff;
-        }
-        .message-meta {
-            font-size: 0.8em;
-            color: #65676b;
-        }
-        .dark .message-meta {
-            color: #b0b3b8;
-        }
-        .forwarded-from {
-            font-size: 0.8em;
-            color: #65676b;
-            margin-bottom: 5px;
-        }
-        .dark .forwarded-from {
-            color: #b0b3b8;
-        }
-        .message-content {
-            font-size: 1em;
-            line-height: 1.4;
-        }
-        .message-media img, .message-media video {
-            max-width: 100%;
-            border-radius: 10px;
-            margin-top: 10px;
-        }
-        .media-placeholder {
-            background-color: #f0f2f5;
-            border: 1px dashed #ccc;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            color: #65676b;
-            margin-top: 10px;
-        }
-        .dark .media-placeholder {
-            background-color: #242526;
-            border-color: #3e4042;
-            color: #b0b3b8;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 0.8em;
-            color: #65676b;
-        }
-        .dark .footer {
-            color: #b0b3b8;
-        }
-    `;
 
     const html = `
       <!DOCTYPE html>
-      <html lang="en">
+      <html lang=\"en\" class=\"dark\">
       <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Telegram Export: ${utils.escapeHtml(
-            chatName || "Chat"
-          )}</title>
-          <style>${styles}</style>
-      </head>
-      <body>
-          <div class="container">
-              <header class="header">
-                  <h1 class="chat-title">${utils.escapeHtml(
-                    chatName || "Telegram Chat"
-                  )}</h1>
-                  <div class="export-info">
-                      <span>Exported: ${new Date().toLocaleString()}</span>
-                      <span>Format: HTML (Premium)</span>
-                  </div>
-                  <div class="stats">
-                      <div class="stat-box">
-                          <div class="stat-value">${messages.length}</div>
-                          <div class="stat-label">Messages</div>
-                      </div>
-                      <div class="stat-box">
-                          <div class="stat-value">${participantCount}</div>
-                          <div class="stat-label">Participants</div>
-                      </div>
-                      <div class="stat-box">
-                          <div class="stat-value">${new Date().toLocaleDateString()}</div>
-                          <div class="stat-label">Export Date</div>
-                      </div>
-                  </div>
-              </header>
-              <main class="messages-container">
-    `;
+          <meta charset=\"UTF-8\">
+          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+          <title>Telegram Export: ${utils.escapeHtml(chatName || "Chat")}<\/title>
+          <script src=\"https://cdn.tailwindcss.com\"><\/script>
+          <script>
+            tailwind.config = {
+              darkMode: 'class',
+              theme: {
+                extend: {
+                  typography: (theme) => ({
+                    invert: {
+                      css: {
+                        '--tw-prose-body': theme('colors.gray[400]'),
+                        '--tw-prose-headings': theme('colors.gray.200'),
+                        '--tw-prose-links': theme('colors.cyan[400]'),
+                        '--tw-prose-bold': theme('colors.gray.200'),
+                        '--tw-prose-hr': theme('colors.gray.700/50'),
+                        '--tw-prose-quotes': theme('colors.gray.200'),
+                        '--tw-prose-quote-borders': theme('colors.gray.700'),
+                        '--tw-prose-code': theme('colors.gray.200'),
+                        '--tw-prose-pre-bg': theme('colors.gray.800/50'),
+                      },
+                    },
+                  }),
+                },
+              },
+            }
+          <\/script>
+          <style>
+            body { background-color: #111827; font-family: 'Inter', sans-serif; }
+            @import url('https://rsms.me/inter/inter.css');
+            .prose-invert a { text-decoration: none; font-weight: 500; transition: color 0.2s ease-in-out; }
+            .prose-invert a:hover { color: theme('colors.cyan.300'); }
+            .emoji-small { width: 20px; height: 20px; display: inline-block; vertical-align: middle; }
+          <\/style>
+      <\/head>
+      <body class=\"bg-gray-900 text-gray-400\">
+          <div class=\"container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl\">
+              <header class=\"text-center mb-12\">
+                  <h1 class=\"text-4xl font-bold text-gray-200\">${utils.escapeHtml(chatName || "Chat")}<\/h1>
+                  <div class=\"text-sm text-gray-500 mt-4 space-x-5\">
+                      <span>Exported on: <span class=\"font-medium text-gray-400\">${new Date().toLocaleString()}<\/span><\/span>
+                      <span><span class=\"font-medium text-gray-400\">${messages.length}<\/span> Messages<\/span>
+                      <span><span class=\"font-medium text-gray-400\">${participants.size}<\/span> Participants<\/span>
+                  <\/div>
+              <\/header>
+              <main>${messagesHTML}<\/main>
+          <\/div>
+      <\/body>
+      <\/html>`;
 
-    const messagesHTML = messages
-      .map((msg) => {
-        let mediaHTML = "";
-
-        if (config.includeMedia) {
-          if (msg.metadata.hasImage) {
-            mediaHTML = `
-              <div class="message-media">
-                  ${
-                    config.mediaAsThumbnails && msg.metadata.mediaSrc
-                      ? `<img src="${msg.metadata.mediaSrc}" alt="${
-                          msg.metadata.mediaAlt || "Image"
-                        }" class="media-thumbnail">`
-                      : `<div class="media-placeholder">${
-                          msg.metadata.mediaAlt
-                            ? `${config.imagePlaceholder}: ${msg.metadata.mediaAlt}`
-                            : config.imagePlaceholder
-                        }</div>`
-                  }
-              </div>`;
-          } else if (msg.metadata.hasVideo) {
-            mediaHTML = `
-              <div class="message-media">
-                  ${
-                    config.mediaAsThumbnails && msg.metadata.mediaSrc
-                      ? `<video controls class="media-thumbnail"><source src="${msg.metadata.mediaSrc}" type="video/mp4">${config.videoPlaceholder}</video>`
-                      : `<div class="media-placeholder">${config.videoPlaceholder}</div>`
-                  }
-              </div>`;
-          } else if (msg.metadata.hasGif) {
-            mediaHTML = `
-              <div class="message-media">
-                  ${
-                    config.mediaAsThumbnails && msg.metadata.mediaSrc
-                      ? `<img src="${msg.metadata.mediaSrc}" alt="GIF" class="media-thumbnail">`
-                      : `<div class="media-placeholder">${config.gifPlaceholder}</div>`
-                  }
-              </div>`;
-          } else if (msg.metadata.hasDocument) {
-            mediaHTML = `
-              <div class="message-media">
-                  <div class="media-placeholder">
-                      ${
-                        msg.metadata.documentName
-                          ? `${config.documentPlaceholder}: ${msg.metadata.documentName}`
-                          : config.documentPlaceholder
-                      }
-                  </div>
-              </div>`;
-          } else if (msg.metadata.hasAudio) {
-            mediaHTML = `
-              <div class="message-media">
-                  <div class="media-placeholder">${config.audioPlaceholder}</div>
-              </div>`;
-          } else if (msg.metadata.hasSticker) {
-            mediaHTML = `
-              <div class="message-media">
-                  <div class="media-placeholder">${config.stickerPlaceholder}</div>
-              </div>`;
-          }
-        }
-
-        return `
-          <div class="message">
-              <div class="message-number">${msg.position}</div>
-              <div class="message-header">
-                  <div class="sender-info">
-                      <span class="sender-name">${utils.escapeHtml(
-                        msg.metadata.sender || ""
-                      )}</span>
-                  </div>
-                  <div class="message-meta">
-                      <span class="message-date">
-                          <span>${utils.escapeHtml(
-                            msg.metadata.date || "Unknown date"
-                          )}</span>
-                          <span>•</span>
-                          <span>${utils.escapeHtml(
-                            msg.metadata.time || "Unknown time"
-                          )}</span>
-                      </span>
-                  </div>
-              </div>
-              ${
-                msg.metadata.forwardedFrom
-                  ? `<div class="forwarded-from"><span>↩️ Forwarded from ${utils.escapeHtml(
-                      msg.metadata.forwardedFrom
-                    )}</span></div>`
-                  : ""
-              }
-              ${mediaHTML}
-              <div class="message-content">${
-                msg.content
-              }</div>
-          </div>`;
-      })
-      .join("");
-
-    const footerHTML = `
-              </main>
-              <footer class="footer">
-                  <p>Exported using Telegram Text Exporter (Premium) • ${new Date().getFullYear()}</p>
-              </footer>
-          </div>
-      </body>
-      </html>`;
-
-    return html + messagesHTML + footerHTML;
+    return html;
   },
 
-  /**
-   * Processes an array of message elements into a JSON object.
-   * @param {Array<HTMLElement>} messageElements - The message elements to process.
-   * @returns {Promise<object>} - A promise that resolves with the processed JSON object.
-   */
-  processMessagesToJSON: async function (messageElements) {
-    const { config, utils } = window.TelegramExporter;
-    const messages = [];
-    const participants = new Set();
+  processMessagesToJSON: async function (messages) {
+    const participants = new Set(messages.map((msg) => msg.sender));
 
-    for (let i = 0; i < messageElements.length; i += config.chunkSize) {
-      const chunk = Array.from(messageElements).slice(i, i + config.chunkSize);
-      for (const messageEl of chunk) {
-        const metadata = utils.extractMetadata(messageEl);
-        const messageText = utils.cleanMessageText(messageEl);
-
-        if (messageText || Object.values(metadata).some(v => v)) {
-          if (metadata.sender) participants.add(metadata.sender);
-          messages.push({
-            id: i + 1,
-            ...metadata,
-            content: messageText ? messageText.replace(/\n/g, '\n') : null,
-            mediaInfo: config.includeMedia
-              ? {
-                  hasImage: metadata.hasImage,
-                  hasVideo: metadata.hasVideo,
-                  hasGif: metadata.hasGif,
-                  hasDocument: metadata.hasDocument,
-                  hasAudio: metadata.hasAudio,
-                  hasSticker: metadata.hasSticker,
-                  mediaSrc: metadata.mediaSrc,
-                  mediaAlt: metadata.mediaAlt,
-                  documentName: metadata.documentName,
-                }
-              : null,
-          });
-        }
-      }
-      await utils.randomDelay();
-    }
+    const serializableMessages = messages.map((msg) => {
+      const { element, ...rest } = msg;
+      return rest;
+    });
 
     return {
       meta: {
         exportDate: new Date().toISOString(),
         messageCount: messages.length,
         participantCount: participants.size,
-        formatVersion: "2.4",
+        chatName: window.TelegramExporter.utils.getChatName(),
       },
-      messages,
+      messages: serializableMessages,
     };
   },
 };

@@ -6,37 +6,29 @@ window.TelegramExporter = {};
 // These values can be tweaked to change the behavior of the script.
 window.TelegramExporter.config = {
   // The number of messages to process in each batch.
-  chunkSize: 50,
+  chunkSize: 100,
   // The base delay between processing each chunk of messages.
-  delayBetweenChunks: 300,
+  delayBetweenChunks: 500,
   // A random delay added to the base delay to mimic human behavior.
-  maxRandomDelay: 800,
+  maxRandomDelay: 1000,
   // The interval at which to scroll the message list to load more messages.
-  autoScrollInterval: 150,
+  autoScrollInterval: 200,
   // The maximum number of scroll attempts before giving up.
-  maxScrollAttempts: 25,
-  // CSS selectors for identifying key elements in the Telegram web interface.
-  messageSelector: ".message-list-item, .Message:not(.SponsoredMessage)",
-  contentSelector: ".text-content",
-  dateGroupSelector: ".message-date-group .sticky-date",
-  forwardedFromSelector:
-    ".forward-title-container + .message-title-name .sender-title",
-  linkSelector: 'a.text-entity-link, a[data-entity-type="MessageEntityUrl"]',
+  maxScrollAttempts: 30,
   // The format to use for links in the exported text.
-  linkFormat: "(Click)[{url}]",
+  linkFormat: "[{text}]({url})",
   // Whether to merge adjacent links into a single link.
   mergeAdjacentLinks: true,
   // Whether to include a count of exported messages in the output.
   includeMessageCount: true,
   // Whether to include the export date in the output.
   includeExportDate: true,
-  
   // Whether to include media in the export.
   includeMedia: true,
   // Whether to display media as thumbnails in the HTML export.
-  mediaAsThumbnails: true,
+  mediaAsThumbnails: false,
   // The maximum width of media thumbnails in the HTML export.
-  maxMediaWidth: "400px",
+  maxMediaWidth: "500px",
   // Whether to include placeholder text for media.
   mediaPlaceholderText: true,
   // Placeholder text for different types of media.
@@ -46,23 +38,58 @@ window.TelegramExporter.config = {
   documentPlaceholder: "📄 [File]",
   audioPlaceholder: "🎵 [Audio]",
   stickerPlaceholder: "🏷️ [Sticker]",
+  pollPlaceholder: "📊 [Poll]",
 };
 
 // Selectors for various elements in the Telegram web interface.
 window.TelegramExporter.selectors = {
-  chatName: ".chat-info .chat-title, .ChatInfo .title",
-  messageList: ".messages-layout, .MessageList",
-  sender: ".message-author, .MessageSender",
+  chatName: ".chat-info .peer-title, .ChatInfo .title",
+  messageList: ".messages-list, .MessageList",
+  messageSelector: ".Message",
+  contentSelector: ".text-content",
+  dateGroupSelector: ".sticky-date",
+  sender: ".message-author, .MessageSender, .sender-title",
   time: ".message-time",
   avatar: ".Avatar img, .avatar-media",
   reactions: ".Reactions, .message-reactions",
-  forwardedIcon: ".icon-share-filled, .forward-icon",
+  reactionButton: ".message-reaction",
+  reactionStaticEmoji: ".ReactionStaticEmoji",
+  reactionCount: ".P2FqNJAi",
+  forwarded: {
+    container: ".message-title",
+    title: ".forward-title",
+    from: ".sender-title",
+  },
+  reply: {
+    container: ".message-subheader",
+    text: ".embedded-text-wrapper",
+    sender: ".embedded-sender",
+  },
+  webPagePreview: ".WebPage",
   media: {
     image: '.full-media[src^="blob:"], img.message-photo',
     video: "video",
+    videoDuration: ".message-media-duration",
     gif: ".gif, .animation",
-    document: ".document-name",
+    document: ".File",
+    documentTitle: ".file-title",
+    documentSubtitle: ".file-subtitle",
     audio: ".audio-track",
     sticker: ".sticker-media",
+  },
+  emoji: {
+    standard: "img.emoji",
+    custom: ".custom-emoji.emoji",
+  },
+  poll: {
+    container: ".Poll",
+    question: ".poll-question",
+    type: ".poll-type",
+    answers: ".poll-answers",
+    results: ".poll-results",
+    option: ".PollOption",
+    optionText: ".poll-option-text",
+    optionPercent: ".poll-option-share",
+    optionChosen: ".poll-option-chosen",
   },
 };
