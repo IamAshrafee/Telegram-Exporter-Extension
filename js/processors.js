@@ -11,12 +11,15 @@ window.TelegramExporter.processors = {
       if (message.date) allText += `Date: ${message.date}\n`;
       if (message.time) allText += `Time: ${message.time}\n`;
       if (message.sender) allText += `From: ${message.sender}\n`;
-      if (message.isForwarded) allText += `Forwarded from: ${message.forwardedFrom || 'Unknown'}\n`;
+      if (message.isForwarded)
+        allText += `Forwarded from: ${message.forwardedFrom || "Unknown"}\n`;
       if (message.isReply && message.replyInfo) {
         allText += `Replying to ${message.replyInfo.sender}: \"${message.replyInfo.text}\"\n`;
       }
       if (message.reactions && message.reactions.length > 0) {
-        allText += `Reactions: ${message.reactions.map(r => `${r.name} (${r.count})`).join(', ')}\n`;
+        allText += `Reactions: ${message.reactions
+          .map((r) => `${r.name} (${r.count})`)
+          .join(", ")}\n`;
       }
 
       if (message.text) {
@@ -44,7 +47,9 @@ window.TelegramExporter.processors = {
       tempDiv.innerHTML = contentHTML;
       tempDiv.querySelectorAll(selectors.emoji.standard).forEach((emojiEl) => {
         if (emojiEl.src.includes("img-apple-64")) {
-          emojiEl.src = `https://web.telegram.org/a/${emojiEl.src.substring(emojiEl.src.indexOf('img-apple-64'))}`;
+          emojiEl.src = `https://web.telegram.org/a/${emojiEl.src.substring(
+            emojiEl.src.indexOf("img-apple-64")
+          )}`;
         }
       });
       contentHTML = tempDiv.innerHTML;
@@ -58,49 +63,82 @@ window.TelegramExporter.processors = {
         }
       } else if (msg.type === "poll" && msg.poll) {
         mediaHTML = `<div class=\"mt-3 border-l-4 border-gray-700 pl-4 py-3 bg-gray-800/50 rounded-r-lg transition hover:bg-gray-800\">
-          <div class=\"font-semibold text-gray-200\">${utils.escapeHtml(msg.poll.question)}</div>
+          <div class=\"font-semibold text-gray-200\">${utils.escapeHtml(
+            msg.poll.question
+          )}</div>
           <div class=\"mt-2 space-y-1\">
-            ${msg.poll.options.map((opt) => `
+            ${msg.poll.options
+              .map(
+                (opt) => `
               <div class=\"flex justify-between items-center text-sm\">
-                <span class=\"text-gray-400\">${utils.escapeHtml(opt.text)}</span>
-                <span class=\"text-gray-500 font-medium\">${utils.escapeHtml(opt.percent || "")}<\/span>
-              <\/div>`).join("")}
+                <span class=\"text-gray-400\">${utils.escapeHtml(
+                  opt.text
+                )}</span>
+                <span class=\"text-gray-500 font-medium\">${utils.escapeHtml(
+                  opt.percent || ""
+                )}<\/span>
+              <\/div>`
+              )
+              .join("")}
           <\/div>
         <\/div>`;
       } else if (msg.type === "file" && msg.file) {
         mediaHTML = `<div class=\"mt-3 bg-gray-800/50 border border-gray-700/80 rounded-lg p-3 flex items-center space-x-4 transition hover:bg-gray-800\">
           <div class=\"text-gray-500\"><svg class=\"w-8 h-8\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\"></path><\/svg><\/div>
           <div>
-            <div class=\"font-semibold text-gray-200\">${utils.escapeHtml(msg.file.title)}</div>
-            <div class=\"text-sm text-gray-500\">${utils.escapeHtml(msg.file.subtitle)}</div>
+            <div class=\"font-semibold text-gray-200\">${utils.escapeHtml(
+              msg.file.title
+            )}</div>
+            <div class=\"text-sm text-gray-500\">${utils.escapeHtml(
+              msg.file.subtitle
+            )}</div>
           </div>
         </div>`;
       }
-      
-      const reactionsHTML = msg.reactions && msg.reactions.length > 0 
-        ? `<div class=\"mt-3 text-xs text-gray-500 pt-3 border-t border-gray-700/50 flex flex-wrap gap-2\">
-            ${msg.reactions.map(r => `<span class=\"bg-gray-700/50 rounded-full px-3 py-1 text-gray-400\">${utils.escapeHtml(r.name)} ${utils.escapeHtml(r.count)}<\/span>`).join('')}
-           <\/div>` 
-        : "";
 
-      const replyHTML = msg.isReply && msg.replyInfo
-        ? `<div class=\"mb-3 border-l-4 border-gray-600 pl-3 text-sm\">
-             <div class=\"font-semibold text-gray-400\">Reply to ${utils.escapeHtml(msg.replyInfo.sender)}<\/div>
-             <div class=\"text-gray-500 truncate\">${utils.escapeHtml(msg.replyInfo.text)}<\/div>
+      const reactionsHTML =
+        msg.reactions && msg.reactions.length > 0
+          ? `<div class=\"mt-3 text-xs text-gray-500 pt-3 border-t border-gray-700/50 flex flex-wrap gap-2\">
+            ${msg.reactions
+              .map(
+                (r) =>
+                  `<span class=\"bg-gray-700/50 rounded-full px-3 py-1 text-gray-400\">${utils.escapeHtml(
+                    r.name
+                  )} ${utils.escapeHtml(r.count)}<\/span>`
+              )
+              .join("")}
            <\/div>`
-        : "";
-        
+          : "";
+
+      const replyHTML =
+        msg.isReply && msg.replyInfo
+          ? `<div class=\"mb-3 border-l-4 border-gray-600 pl-3 text-sm\">
+             <div class=\"font-semibold text-gray-400\">Reply to ${utils.escapeHtml(
+               msg.replyInfo.sender
+             )}<\/div>
+             <div class=\"text-gray-500 truncate\">${utils.escapeHtml(
+               msg.replyInfo.text
+             )}<\/div>
+           <\/div>`
+          : "";
+
       const forwardedHTML = msg.isForwarded
-        ? `<div class=\"text-xs text-gray-500 mb-2\">${utils.escapeHtml(msg.forwardedFrom)}<\/div>`
+        ? `<div class=\"text-xs text-gray-500 mb-2\">${utils.escapeHtml(
+            msg.forwardedFrom
+          )}<\/div>`
         : "";
 
       messagesHTML += `
         <div class=\"bg-gray-800/80 rounded-xl p-5 mb-4 shadow-lg border border-gray-700/50 transition-all duration-300 hover:shadow-2xl hover:border-gray-700\">
           <div class=\"flex justify-between items-center mb-3\">
             <div class=\"flex items-center space-x-3\">
-              <span class=\"font-bold text-cyan-400\">${utils.escapeHtml(msg.sender)}<\/span>
+              <span class=\"font-bold text-cyan-400\">${utils.escapeHtml(
+                msg.sender
+              )}<\/span>
             <\/div>
-            <span class=\"text-xs text-gray-600 font-mono\">${utils.escapeHtml(msg.date)} at ${utils.escapeHtml(msg.time)}<\/span>
+            <span class=\"text-xs text-gray-600 font-mono\">${utils.escapeHtml(
+              msg.date
+            )} at ${utils.escapeHtml(msg.time)}<\/span>
           <\/div>
           ${forwardedHTML}
           ${replyHTML}
@@ -116,7 +154,9 @@ window.TelegramExporter.processors = {
       <head>
           <meta charset=\"UTF-8\">
           <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-          <title>Telegram Export: ${utils.escapeHtml(chatName || "Chat")}<\/title>
+          <title>Telegram Export: ${utils.escapeHtml(
+            chatName || "Chat"
+          )}<\/title>
           <script src=\"https://cdn.tailwindcss.com\"><\/script>
           <script>
             tailwind.config = {
@@ -153,11 +193,17 @@ window.TelegramExporter.processors = {
       <body class=\"bg-gray-900 text-gray-400\">
           <div class=\"container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl\">
               <header class=\"text-center mb-12\">
-                  <h1 class=\"text-4xl font-bold text-gray-200\">${utils.escapeHtml(chatName || "Chat")}<\/h1>
+                  <h1 class=\"text-4xl font-bold text-gray-200\">${utils.escapeHtml(
+                    chatName || "Chat"
+                  )}<\/h1>
                   <div class=\"text-sm text-gray-500 mt-4 space-x-5\">
                       <span>Exported on: <span class=\"font-medium text-gray-400\">${new Date().toLocaleString()}<\/span><\/span>
-                      <span><span class=\"font-medium text-gray-400\">${messages.length}<\/span> Messages<\/span>
-                      <span><span class=\"font-medium text-gray-400\">${participants.size}<\/span> Participants<\/span>
+                      <span><span class=\"font-medium text-gray-400\">${
+                        messages.length
+                      }<\/span> Messages<\/span>
+                      <span><span class=\"font-medium text-gray-400\">${
+                        participants.size
+                      }<\/span> Participants<\/span>
                   <\/div>
               <\/header>
               <main>${messagesHTML}<\/main>

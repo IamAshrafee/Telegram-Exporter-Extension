@@ -3,7 +3,7 @@
   "manifest_version": 3,
   "name": "Telegram Exporter",
   "description": "Export Telegram messages with media support to TXT, HTML, or JSON",
-  "version": "1.0",
+  "version": "2.356",
   "permissions": [
     "activeTab",
     "scripting",

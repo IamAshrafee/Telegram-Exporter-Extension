@@ -14,7 +14,9 @@ window.TelegramExporter.config = {
   // The interval at which to scroll the message list to load more messages.
   autoScrollInterval: 200,
   // The maximum number of scroll attempts before giving up.
-  maxScrollAttempts: 30,
+  maxScrollAttempts: 150, // Increased for long chats
+  scrollChunkSize: 600, // Pixels to scroll each step
+  scrollDelay: 800, // ms between scrolls
   // The format to use for links in the exported text.
   linkFormat: "[{text}]({url})",
   // Whether to merge adjacent links into a single link.
