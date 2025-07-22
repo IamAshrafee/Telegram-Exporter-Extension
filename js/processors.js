@@ -157,7 +157,7 @@ window.TelegramExporter.processors = {
           <title>Telegram Export: ${utils.escapeHtml(
             chatName || "Chat"
           )}<\/title>
-          <script src=\"https://cdn.tailwindcss.com\"><\/script>
+          <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
           <script>
             tailwind.config = {
               darkMode: 'class',
