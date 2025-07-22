@@ -41,6 +41,7 @@ window.TelegramExporter.config = {
   audioPlaceholder: "🎵 [Audio]",
   stickerPlaceholder: "🏷️ [Sticker]",
   pollPlaceholder: "📊 [Poll]",
+  delayBetweenMessages: 1000, // The delay between scraping each message.
 };
 
 // Selectors for various elements in the Telegram web interface.

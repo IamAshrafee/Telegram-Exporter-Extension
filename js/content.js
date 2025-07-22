@@ -15,7 +15,147 @@
       console.warn(`%c[Telegram Exporter] ${message}`, "color: #f39c12"),
   };
 
-  async function progressiveScrollAndScrape() {
+  // Track seen messages to prevent duplicates
+  const seenMessageIds = new Set();
+
+  function extractSingleMessage(el, currentDate) {
+    if (el.matches(".SponsoredMessage")) return null;
+
+    const messageId = el.getAttribute("data-message-id");
+    if (seenMessageIds.has(messageId)) return null;
+    seenMessageIds.add(messageId);
+
+    const reactions = Array.from(
+      el.querySelectorAll(selectors.reactionButton)
+    ).map((btn) => {
+      const name =
+        btn.querySelector(selectors.reactionStaticEmoji)?.alt || "emoji";
+      const count =
+        btn.querySelector(selectors.reactionCount)?.innerText.trim() || "1";
+      return { name, count };
+    });
+
+    const replyEl = el.querySelector(selectors.reply.container);
+    let replyInfo = null;
+    if (replyEl) {
+      const replyText = replyEl
+        .querySelector(selectors.reply.text)
+        ?.innerText.trim();
+      const replySender = replyEl
+        .querySelector(selectors.reply.sender)
+        ?.innerText.trim();
+      replyInfo = {
+        text: replyText,
+        sender: replySender,
+      };
+    }
+
+    const forwardEl = el.querySelector(selectors.forwarded.container);
+    let forwardedInfo = null;
+    if (forwardEl) {
+      const title = forwardEl
+        .querySelector(selectors.forwarded.title)
+        ?.innerText.trim();
+      const from = forwardEl
+        .querySelector(selectors.forwarded.from)
+        ?.innerText.trim();
+      if (title && from) {
+        forwardedInfo = `${title} ${from}`;
+      }
+    }
+
+    const message = {
+      id: messageId,
+      element: el,
+      type: "text",
+      text: "",
+      html: "",
+      sender:
+        el.querySelector(selectors.sender)?.textContent.trim() || "Unknown",
+      time: el.querySelector(selectors.time)?.textContent.trim() || "Unknown",
+      date: currentDate,
+      isForwarded: !!forwardEl,
+      forwardedFrom: forwardedInfo,
+      isReply: !!replyEl,
+      replyInfo: replyInfo,
+      reactions: reactions,
+      media: null,
+      poll: null,
+      file: null,
+    };
+
+    const contentEl = el.querySelector(selectors.contentSelector);
+    if (contentEl) {
+      const clone = contentEl.cloneNode(true);
+      const meta = clone.querySelector(".MessageMeta");
+      if (meta) meta.remove();
+
+      const reactionsEl = clone.querySelector(selectors.reactions);
+      if (reactionsEl) reactionsEl.remove();
+
+      message.text = clone.innerText;
+      message.html = clone.innerHTML;
+    }
+
+    const mediaImageEl = el.querySelector(selectors.media.image);
+    if (mediaImageEl) {
+      message.type = "media";
+      message.media = { type: "image", src: mediaImageEl.src };
+    }
+
+    const mediaVideoEl = el.querySelector(selectors.media.video);
+    if (mediaVideoEl) {
+      message.type = "media";
+      message.media = {
+        type: "video",
+        src: mediaVideoEl.src,
+        duration: el
+          .querySelector(selectors.media.videoDuration)
+          ?.innerText.trim(),
+      };
+    }
+
+    const pollEl = el.querySelector(selectors.poll.container);
+    if (pollEl) {
+      message.type = "poll";
+      const question = pollEl
+        .querySelector(selectors.poll.question)
+        ?.innerText.trim();
+      const pollType = pollEl
+        .querySelector(selectors.poll.type)
+        ?.innerText.trim();
+      const options = Array.from(
+        pollEl.querySelectorAll(selectors.poll.option)
+      ).map((opt) => ({
+        text: opt.querySelector(selectors.poll.optionText)?.innerText.trim(),
+        percent: opt
+          .querySelector(selectors.poll.optionPercent)
+          ?.innerText.trim(),
+        isChosen: !!opt.querySelector(selectors.poll.optionChosen),
+      }));
+      message.poll = { question, type: pollType, options };
+    }
+
+    const fileEl = el.querySelector(selectors.media.document);
+    if (fileEl) {
+      message.type = "file";
+      const title = fileEl
+        .querySelector(selectors.media.documentTitle)
+        ?.innerText.trim();
+      const subtitle = fileEl
+        .querySelector(selectors.media.documentSubtitle)
+        ?.innerText.trim();
+      message.file = { title, subtitle };
+    }
+
+    const webPagePreview = el.querySelector(selectors.webPagePreview);
+    if (webPagePreview) {
+      webPagePreview.remove();
+    }
+    return message;
+  }
+
+  async function scrapeMessagesBackward() {
     const scrollContainer =
       document.querySelector(".messages-layout .scroller") ||
       document.querySelector(selectors.messageList);
@@ -25,92 +165,66 @@
       return [];
     }
 
-    // Start from bottom
-    scrollContainer.scrollTop = scrollContainer.scrollHeight;
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Step 1: Initialization
+    const messageElements = [
+      ...document.querySelectorAll("[data-message-id]"),
+    ];
+    if (messageElements.length === 0) {
+      logger.warn("No messages found on screen to start export.");
+      dom.showAlert("No messages found!", "warning");
+      return [];
+    }
+    const totalMessages = Math.max(
+      ...messageElements.map((el) =>
+        parseInt(el.getAttribute("data-message-id"), 10)
+      )
+    );
 
     let allMessages = [];
-    let previousHeight = scrollContainer.scrollHeight;
-    let scrollPosition = scrollContainer.scrollHeight;
-    let attempts = 0;
-
-    while (attempts < config.maxScrollAttempts) {
-      attempts++;
-
-      // Scroll up
-      scrollPosition -= config.scrollChunkSize;
-      scrollContainer.scrollTop = Math.max(0, scrollPosition);
-
-      // Wait for loading
-      await new Promise((resolve) => setTimeout(resolve, config.scrollDelay));
-
-      // Check if new content loaded
-      if (scrollContainer.scrollHeight > previousHeight) {
-        previousHeight = scrollContainer.scrollHeight;
-        scrollPosition = scrollContainer.scrollHeight;
-        attempts = 0; // Reset counter if new content found
-      }
-
-      // Scrape messages and maintain order
-      const currentMessages = extractMessages();
-      allMessages = [...currentMessages, ...allMessages]; // Newest messages first
-
-      // Update UI
-      dom.showLoading(
-        true,
-        `Loaded ${allMessages.length} messages...\n` +
-          `Progress: ${Math.round(
-            (1 - scrollPosition / scrollContainer.scrollHeight) * 100
-          )}%`
-      );
-
-      // Stop if at top
-      if (scrollContainer.scrollTop <= 10) break;
-    }
-
-    // Sort messages by ID (ascending = oldest first)
-    return allMessages.sort((a, b) => parseFloat(a.id) - parseFloat(b.id));
-  }
-
-  function mergeUniqueMessages(existing, newMessages) {
-    const uniqueMessages = [...existing];
-    const existingIds = new Set(existing.map((m) => m.uniqueId));
-
-    for (const msg of newMessages) {
-      const msgId = `${msg.date}_${msg.time}_${
-        msg.sender
-      }_${msg.text?.substring(0, 30)}`;
-      msg.uniqueId = msgId;
-
-      if (!existingIds.has(msgId)) {
-        uniqueMessages.push(msg);
-        existingIds.add(msgId);
-      }
-    }
-
-    return uniqueMessages;
-  }
-
-  // Track seen messages to prevent duplicates
-  const seenMessageIds = new Set();
-
-  function extractMessages() {
-    const messageElements = document.querySelectorAll(
-      selectors.messageSelector
-    );
-    const messages = [];
+    let currentMessageId = totalMessages;
     let currentDate = "";
 
-    messageElements.forEach((el) => {
-      if (el.matches(".SponsoredMessage")) return;
+    logger.info(`Starting scrape from message ID: ${totalMessages}`);
 
-      // Get message ID from data attribute
-      const messageId = el.getAttribute("data-message-id");
-      if (seenMessageIds.has(messageId)) return;
-      seenMessageIds.add(messageId);
+    // Step 2: Sequential Scraping Loop
+    while (currentMessageId > 0) {
+      let messageEl = document.querySelector(
+        `[data-message-id="${currentMessageId}"]`
+      );
+
+      // If message is not in DOM, scroll up to load it
+      if (!messageEl) {
+        logger.info(`Message ${currentMessageId} not loaded. Scrolling up.`);
+        const oldestMessage = document.querySelector("[data-message-id]");
+        if (oldestMessage) {
+          // Scroll the oldest visible message to the top to trigger loading
+          oldestMessage.scrollIntoView({ block: "start" });
+          await new Promise((resolve) =>
+            setTimeout(resolve, config.scrollDelay)
+          );
+          // Retry finding the element
+          messageEl = document.querySelector(
+            `[data-message-id="${currentMessageId}"]`
+          );
+        }
+      }
+
+      // If still not found, skip it.
+      if (!messageEl) {
+        logger.warn(
+          `Message with ID ${currentMessageId} not found after scrolling. Skipping.`
+        );
+        currentMessageId--;
+        continue;
+      }
+
+      // Scroll the current message into view for the user
+      messageEl.scrollIntoView({ block: "center", behavior: "smooth" });
+      // Wait for the smooth scroll to finish before scraping
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
       // Handle date groups
-      const dateGroup = el.closest(".message-date-group");
+      const dateGroup = messageEl.closest(".message-date-group");
       if (dateGroup) {
         const dateEl = dateGroup.querySelector(selectors.dateGroupSelector);
         if (dateEl) {
@@ -118,137 +232,32 @@
         }
       }
 
-      const reactions = Array.from(
-        el.querySelectorAll(selectors.reactionButton)
-      ).map((btn) => {
-        const name =
-          btn.querySelector(selectors.reactionStaticEmoji)?.alt || "emoji";
-        const count =
-          btn.querySelector(selectors.reactionCount)?.innerText.trim() || "1";
-        return { name, count };
-      });
-
-      const replyEl = el.querySelector(selectors.reply.container);
-      let replyInfo = null;
-      if (replyEl) {
-        const replyText = replyEl
-          .querySelector(selectors.reply.text)
-          ?.innerText.trim();
-        const replySender = replyEl
-          .querySelector(selectors.reply.sender)
-          ?.innerText.trim();
-        replyInfo = {
-          text: replyText,
-          sender: replySender,
-        };
+      // Step 3: Scrape the Message
+      const message = extractSingleMessage(messageEl, currentDate);
+      if (message) {
+        allMessages.push(message);
       }
 
-      const forwardEl = el.querySelector(selectors.forwarded.container);
-      let forwardedInfo = null;
-      if (forwardEl) {
-        const title = forwardEl
-          .querySelector(selectors.forwarded.title)
-          ?.innerText.trim();
-        const from = forwardEl
-          .querySelector(selectors.forwarded.from)
-          ?.innerText.trim();
-        if (title && from) {
-          forwardedInfo = `${title} ${from}`;
-        }
-      }
+      // Step 4: Update Progress
+      const progress =
+        ((totalMessages - currentMessageId + 1) / totalMessages) * 100;
+      dom.showLoading(
+        true,
+        `Scraped ${
+          allMessages.length
+        } / ${totalMessages} messages... (${progress.toFixed(0)}%)`
+      );
 
-      const message = {
-        id: messageId,
-        element: el,
-        type: "text",
-        text: "",
-        html: "",
-        sender:
-          el.querySelector(selectors.sender)?.textContent.trim() || "Unknown",
-        time: el.querySelector(selectors.time)?.textContent.trim() || "Unknown",
-        date: currentDate,
-        isForwarded: !!forwardEl,
-        forwardedFrom: forwardedInfo,
-        isReply: !!replyEl,
-        replyInfo: replyInfo,
-        reactions: reactions,
-        media: null,
-        poll: null,
-        file: null,
-      };
+      // Step 5: Wait and Decrement
+      await new Promise((resolve) =>
+        setTimeout(resolve, config.delayBetweenMessages)
+      );
+      currentMessageId--;
+    }
 
-      const contentEl = el.querySelector(selectors.contentSelector);
-      if (contentEl) {
-        const clone = contentEl.cloneNode(true);
-        const meta = clone.querySelector(".MessageMeta");
-        if (meta) meta.remove();
-
-        const reactionsEl = clone.querySelector(selectors.reactions);
-        if (reactionsEl) reactionsEl.remove();
-
-        message.text = clone.innerText;
-        message.html = clone.innerHTML;
-      }
-
-      const mediaImageEl = el.querySelector(selectors.media.image);
-      if (mediaImageEl) {
-        message.type = "media";
-        message.media = { type: "image", src: mediaImageEl.src };
-      }
-
-      const mediaVideoEl = el.querySelector(selectors.media.video);
-      if (mediaVideoEl) {
-        message.type = "media";
-        message.media = {
-          type: "video",
-          src: mediaVideoEl.src,
-          duration: el
-            .querySelector(selectors.media.videoDuration)
-            ?.innerText.trim(),
-        };
-      }
-
-      const pollEl = el.querySelector(selectors.poll.container);
-      if (pollEl) {
-        message.type = "poll";
-        const question = pollEl
-          .querySelector(selectors.poll.question)
-          ?.innerText.trim();
-        const pollType = pollEl
-          .querySelector(selectors.poll.type)
-          ?.innerText.trim();
-        const options = Array.from(
-          pollEl.querySelectorAll(selectors.poll.option)
-        ).map((opt) => ({
-          text: opt.querySelector(selectors.poll.optionText)?.innerText.trim(),
-          percent: opt
-            .querySelector(selectors.poll.optionPercent)
-            ?.innerText.trim(),
-          isChosen: !!opt.querySelector(selectors.poll.optionChosen),
-        }));
-        message.poll = { question, type: pollType, options };
-      }
-
-      const fileEl = el.querySelector(selectors.media.document);
-      if (fileEl) {
-        message.type = "file";
-        const title = fileEl
-          .querySelector(selectors.media.documentTitle)
-          ?.innerText.trim();
-        const subtitle = fileEl
-          .querySelector(selectors.media.documentSubtitle)
-          ?.innerText.trim();
-        message.file = { title, subtitle };
-      }
-
-      const webPagePreview = el.querySelector(selectors.webPagePreview);
-      if (webPagePreview) {
-        webPagePreview.remove();
-      }
-      messages.push(message);
-    });
-
-    return messages;
+    logger.success("Scraping complete.");
+    // Step 3 (Finalization): Sorting
+    return allMessages.reverse();
   }
 
   async function exportMessages(format = "txt") {
@@ -260,7 +269,7 @@
         chatName || "chat"
       )}_${new Date().toISOString().slice(0, 10)}`;
 
-      const messages = await progressiveScrollAndScrape();
+      const messages = await scrapeMessagesBackward();
 
       if (messages.length === 0) {
         dom.showAlert("No messages found!", "warning");
