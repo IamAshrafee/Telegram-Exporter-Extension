@@ -1,5 +1,7 @@
 // This file contains utility functions for interacting with the DOM.
 
+window.TelegramExporter = window.TelegramExporter || {};
+
 window.TelegramExporter.dom = {
   /**
    * Shows or hides a loading indicator.
@@ -16,9 +18,17 @@ window.TelegramExporter.dom = {
                     <div class="loader-container">
                         <div class="spinner"></div>
                         <div class="loader-text">${text}</div>
+                        <button id="cancel-export-btn" class="cancel-button">Cancel</button>
                     </div>
                 `;
         document.body.appendChild(loader);
+        loader
+          .querySelector("#cancel-export-btn")
+          .addEventListener("click", () => {
+            window.TelegramExporter.isCancelled = true;
+            this.showLoading(false);
+            this.showAlert("Export cancelled by user.", "warning");
+          });
       }
       if (text) {
         loader.querySelector(".loader-text").textContent = text;

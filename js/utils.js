@@ -1,3 +1,5 @@
+window.TelegramExporter = window.TelegramExporter || {};
+
 window.TelegramExporter.utils = {
   escapeHtml: function (text) {
     if (!text) return "";

@@ -1,3 +1,5 @@
+window.TelegramExporter = window.TelegramExporter || {};
+
 window.TelegramExporter.processors = {
   processMessagesToTXT: async function (messages) {
     const { utils } = window.TelegramExporter;

@@ -18,95 +18,56 @@
   // Track seen messages to prevent duplicates
   const seenMessageIds = new Set();
 
-  function extractSingleMessage(el, currentDate) {
-    if (el.matches(".SponsoredMessage")) return null;
-
-    const messageId = el.getAttribute("data-message-id");
-    if (seenMessageIds.has(messageId)) return null;
-    seenMessageIds.add(messageId);
-
-    const reactions = Array.from(
-      el.querySelectorAll(selectors.reactionButton)
-    ).map((btn) => {
-      const name =
-        btn.querySelector(selectors.reactionStaticEmoji)?.alt || "emoji";
-      const count =
-        btn.querySelector(selectors.reactionCount)?.innerText.trim() || "1";
-      return { name, count };
-    });
-
-    const replyEl = el.querySelector(selectors.reply.container);
-    let replyInfo = null;
-    if (replyEl) {
-      const replyText = replyEl
-        .querySelector(selectors.reply.text)
-        ?.innerText.trim();
-      const replySender = replyEl
-        .querySelector(selectors.reply.sender)
-        ?.innerText.trim();
-      replyInfo = {
-        text: replyText,
-        sender: replySender,
-      };
-    }
-
-    const forwardEl = el.querySelector(selectors.forwarded.container);
-    let forwardedInfo = null;
-    if (forwardEl) {
-      const title = forwardEl
-        .querySelector(selectors.forwarded.title)
-        ?.innerText.trim();
-      const from = forwardEl
-        .querySelector(selectors.forwarded.from)
-        ?.innerText.trim();
-      if (title && from) {
-        forwardedInfo = `${title} ${from}`;
+  function _extractReactions(el) {
+    return Array.from(el.querySelectorAll(selectors.reactionButton)).map(
+      (btn) => {
+        const name =
+          btn.querySelector(selectors.reactionStaticEmoji)?.alt || "emoji";
+        const count =
+          btn.querySelector(selectors.reactionCount)?.innerText.trim() || "1";
+        return { name, count };
       }
-    }
+    );
+  }
 
-    const message = {
-      id: messageId,
-      element: el,
-      type: "text",
-      text: "",
-      html: "",
-      sender:
-        el.querySelector(selectors.sender)?.textContent.trim() || "Unknown",
-      time: el.querySelector(selectors.time)?.textContent.trim() || "Unknown",
-      date: currentDate,
-      isForwarded: !!forwardEl,
-      forwardedFrom: forwardedInfo,
-      isReply: !!replyEl,
-      replyInfo: replyInfo,
-      reactions: reactions,
-      media: null,
-      poll: null,
-      file: null,
+  function _extractReplyInfo(el) {
+    const replyEl = el.querySelector(selectors.reply.container);
+    if (!replyEl) return null;
+
+    const replyText = replyEl
+      .querySelector(selectors.reply.text)
+      ?.innerText.trim();
+    const replySender = replyEl
+      .querySelector(selectors.reply.sender)
+      ?.innerText.trim();
+    return {
+      text: replyText,
+      sender: replySender,
     };
+  }
 
-    const contentEl = el.querySelector(selectors.contentSelector);
-    if (contentEl) {
-      const clone = contentEl.cloneNode(true);
-      const meta = clone.querySelector(".MessageMeta");
-      if (meta) meta.remove();
+  function _extractForwardInfo(el) {
+    const forwardEl = el.querySelector(selectors.forwarded.container);
+    if (!forwardEl) return null;
 
-      const reactionsEl = clone.querySelector(selectors.reactions);
-      if (reactionsEl) reactionsEl.remove();
+    const title = forwardEl
+      .querySelector(selectors.forwarded.title)
+      ?.innerText.trim();
+    const from = forwardEl
+      .querySelector(selectors.forwarded.from)
+      ?.innerText.trim();
+    return title && from ? `${title} ${from}` : null;
+  }
 
-      message.text = clone.innerText;
-      message.html = clone.innerHTML;
-    }
-
+  function _extractMediaInfo(el) {
     const mediaImageEl = el.querySelector(selectors.media.image);
     if (mediaImageEl) {
-      message.type = "media";
-      message.media = { type: "image", src: mediaImageEl.src };
+      return { type: "image", src: mediaImageEl.src };
     }
 
     const mediaVideoEl = el.querySelector(selectors.media.video);
     if (mediaVideoEl) {
-      message.type = "media";
-      message.media = {
+      return {
         type: "video",
         src: mediaVideoEl.src,
         duration: el
@@ -114,45 +75,95 @@
           ?.innerText.trim(),
       };
     }
+    return null;
+  }
 
+  function _extractPollInfo(el) {
     const pollEl = el.querySelector(selectors.poll.container);
-    if (pollEl) {
-      message.type = "poll";
-      const question = pollEl
-        .querySelector(selectors.poll.question)
-        ?.innerText.trim();
-      const pollType = pollEl
-        .querySelector(selectors.poll.type)
-        ?.innerText.trim();
-      const options = Array.from(
-        pollEl.querySelectorAll(selectors.poll.option)
-      ).map((opt) => ({
-        text: opt.querySelector(selectors.poll.optionText)?.innerText.trim(),
-        percent: opt
-          .querySelector(selectors.poll.optionPercent)
-          ?.innerText.trim(),
-        isChosen: !!opt.querySelector(selectors.poll.optionChosen),
-      }));
-      message.poll = { question, type: pollType, options };
-    }
+    if (!pollEl) return null;
 
+    const question = pollEl
+      .querySelector(selectors.poll.question)
+      ?.innerText.trim();
+    const pollType = pollEl.querySelector(selectors.poll.type)?.innerText.trim();
+    const options = Array.from(
+      pollEl.querySelectorAll(selectors.poll.option)
+    ).map((opt) => ({
+      text: opt.querySelector(selectors.poll.optionText)?.innerText.trim(),
+      percent: opt.querySelector(selectors.poll.optionPercent)?.innerText.trim(),
+      isChosen: !!opt.querySelector(selectors.poll.optionChosen),
+    }));
+    return { question, type: pollType, options };
+  }
+
+  function _extractFileInfo(el) {
     const fileEl = el.querySelector(selectors.media.document);
-    if (fileEl) {
-      message.type = "file";
-      const title = fileEl
-        .querySelector(selectors.media.documentTitle)
-        ?.innerText.trim();
-      const subtitle = fileEl
-        .querySelector(selectors.media.documentSubtitle)
-        ?.innerText.trim();
-      message.file = { title, subtitle };
-    }
+    if (!fileEl) return null;
 
-    const webPagePreview = el.querySelector(selectors.webPagePreview);
-    if (webPagePreview) {
-      webPagePreview.remove();
-    }
-    return message;
+    const title = fileEl
+      .querySelector(selectors.media.documentTitle)
+      ?.innerText.trim();
+    const subtitle = fileEl
+      .querySelector(selectors.media.documentSubtitle)
+      ?.innerText.trim();
+    return { title, subtitle };
+  }
+
+  function _extractTextAndHtml(el) {
+    const contentEl = el.querySelector(selectors.contentSelector);
+    if (!contentEl) return { text: "", html: "" };
+
+    const clone = contentEl.cloneNode(true);
+    // Clean up the cloned element
+    const meta = clone.querySelector(".MessageMeta");
+    if (meta) meta.remove();
+    const reactionsEl = clone.querySelector(selectors.reactions);
+    if (reactionsEl) reactionsEl.remove();
+    const webPagePreview = clone.querySelector(selectors.webPagePreview);
+    if (webPagePreview) webPagePreview.remove();
+
+
+    return { text: clone.innerText, html: clone.innerHTML };
+  }
+
+  function extractSingleMessage(el, currentDate) {
+    if (el.matches(".SponsoredMessage")) return null;
+
+    const messageId = el.getAttribute("data-message-id");
+    if (seenMessageIds.has(messageId)) return null;
+    seenMessageIds.add(messageId);
+
+    const replyInfo = _extractReplyInfo(el);
+    const forwardedInfo = _extractForwardInfo(el);
+    const media = _extractMediaInfo(el);
+    const poll = _extractPollInfo(el);
+    const file = _extractFileInfo(el);
+    const { text, html } = _extractTextAndHtml(el);
+
+    let type = "text";
+    if (media) type = "media";
+    else if (poll) type = "poll";
+    else if (file) type = "file";
+
+    return {
+      id: messageId,
+      element: el,
+      type: type,
+      text: text,
+      html: html,
+      sender:
+        el.querySelector(selectors.sender)?.textContent.trim() || "Unknown",
+      time: el.querySelector(selectors.time)?.textContent.trim() || "Unknown",
+      date: currentDate,
+      isForwarded: !!forwardedInfo,
+      forwardedFrom: forwardedInfo,
+      isReply: !!replyInfo,
+      replyInfo: replyInfo,
+      reactions: _extractReactions(el),
+      media: media,
+      poll: poll,
+      file: file,
+    };
   }
 
   async function scrapeMessagesBackward() {
@@ -165,7 +176,6 @@
       return [];
     }
 
-    // Step 1: Initialization
     const messageElements = [
       ...document.querySelectorAll("[data-message-id]"),
     ];
@@ -186,30 +196,30 @@
 
     logger.info(`Starting scrape from message ID: ${totalMessages}`);
 
-    // Step 2: Sequential Scraping Loop
     while (currentMessageId > 0) {
+       if (window.TelegramExporter.isCancelled) {
+          logger.warn("Scraping cancelled by user.");
+          break; // Exit loop
+       }
+
       let messageEl = document.querySelector(
         `[data-message-id="${currentMessageId}"]`
       );
 
-      // If message is not in DOM, scroll up to load it
       if (!messageEl) {
         logger.info(`Message ${currentMessageId} not loaded. Scrolling up.`);
         const oldestMessage = document.querySelector("[data-message-id]");
         if (oldestMessage) {
-          // Scroll the oldest visible message to the top to trigger loading
           oldestMessage.scrollIntoView({ block: "start" });
           await new Promise((resolve) =>
             setTimeout(resolve, config.scrollDelay)
           );
-          // Retry finding the element
           messageEl = document.querySelector(
             `[data-message-id="${currentMessageId}"]`
           );
         }
       }
 
-      // If still not found, skip it.
       if (!messageEl) {
         logger.warn(
           `Message with ID ${currentMessageId} not found after scrolling. Skipping.`
@@ -218,12 +228,9 @@
         continue;
       }
 
-      // Scroll the current message into view for the user
       messageEl.scrollIntoView({ block: "center", behavior: "smooth" });
-      // Wait for the smooth scroll to finish before scraping
       await new Promise((resolve) => setTimeout(resolve, 400));
 
-      // Handle date groups
       const dateGroup = messageEl.closest(".message-date-group");
       if (dateGroup) {
         const dateEl = dateGroup.querySelector(selectors.dateGroupSelector);
@@ -232,13 +239,11 @@
         }
       }
 
-      // Step 3: Scrape the Message
       const message = extractSingleMessage(messageEl, currentDate);
       if (message) {
         allMessages.push(message);
       }
 
-      // Step 4: Update Progress
       const progress =
         ((totalMessages - currentMessageId + 1) / totalMessages) * 100;
       dom.showLoading(
@@ -248,7 +253,6 @@
         } / ${totalMessages} messages... (${progress.toFixed(0)}%)`
       );
 
-      // Step 5: Wait and Decrement
       await new Promise((resolve) =>
         setTimeout(resolve, config.delayBetweenMessages)
       );
@@ -256,11 +260,11 @@
     }
 
     logger.success("Scraping complete.");
-    // Step 3 (Finalization): Sorting
     return allMessages.reverse();
   }
 
   async function exportMessages(format = "txt") {
+    window.TelegramExporter.isCancelled = false; // Reset cancellation flag
     window.TelegramExporter.currentExportFormat = format;
     try {
       dom.showLoading(true, `Preparing ${format.toUpperCase()} export...`);
@@ -270,6 +274,11 @@
       )}_${new Date().toISOString().slice(0, 10)}`;
 
       const messages = await scrapeMessagesBackward();
+
+      if (window.TelegramExporter.isCancelled) {
+        logger.warn("Export was cancelled. No file will be downloaded.");
+        return;
+      }
 
       if (messages.length === 0) {
         dom.showAlert("No messages found!", "warning");
@@ -317,6 +326,10 @@
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "export") {
       exportMessages(request.format);
+      // To satisfy the linter and chrome runtime which expects a response.
+      sendResponse({status: "Export started"});
     }
+    // Keep the message channel open for asynchronous response
+    return true;
   });
 })();
