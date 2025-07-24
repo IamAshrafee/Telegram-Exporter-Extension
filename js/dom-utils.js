@@ -9,20 +9,40 @@ window.TelegramExporter.dom = {
    * @param {string} text - The text to display in the loader.
    */
   showLoading: function (show, text = "") {
-    let loader = document.getElementById("telegram-export-loader");
+    let wrapper = document.getElementById("telegram-export-controls-wrapper");
     if (show) {
-      if (!loader) {
-        loader = document.createElement("div");
-        loader.id = "telegram-export-loader";
-        loader.innerHTML = `
-                    <div class="loader-container">
-                        <div class="spinner"></div>
-                        <div class="loader-text">${text}</div>
-                        <button id="cancel-export-btn" class="cancel-button">Cancel</button>
-                    </div>
-                `;
-        document.body.appendChild(loader);
-        loader
+      if (!wrapper) {
+        wrapper = document.createElement("div");
+        wrapper.id = "telegram-export-controls-wrapper";
+        wrapper.innerHTML = `
+            <div class="action-buttons">
+                <button id="pause-export-btn" class="action-button pause-button">Pause</button>
+                <button id="finish-export-btn" class="action-button finish-button">Finish</button>
+                <button id="cancel-export-btn" class="action-button cancel-button">Cancel</button>
+            </div>
+            <div id="telegram-export-loader">
+                <div class="status-container">
+                    <div class="spinner"></div>
+                    <div class="loader-text"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(wrapper);
+
+        const pauseBtn = wrapper.querySelector("#pause-export-btn");
+        pauseBtn.addEventListener("click", () => {
+            const isPaused = pauseBtn.textContent === "Resume";
+            pauseBtn.textContent = isPaused ? "Pause" : "Resume";
+            window.TelegramExporter.isPaused = !isPaused;
+        });
+
+        wrapper
+          .querySelector("#finish-export-btn")
+          .addEventListener("click", () => {
+            window.TelegramExporter.isFinished = true;
+          });
+
+        wrapper
           .querySelector("#cancel-export-btn")
           .addEventListener("click", () => {
             window.TelegramExporter.isCancelled = true;
@@ -31,11 +51,11 @@ window.TelegramExporter.dom = {
           });
       }
       if (text) {
-        loader.querySelector(".loader-text").textContent = text;
+        wrapper.querySelector(".loader-text").textContent = text;
       }
-      loader.style.display = "flex";
-    } else if (loader) {
-      loader.style.display = "none";
+      wrapper.style.display = "flex";
+    } else if (wrapper) {
+      wrapper.style.display = "none";
     }
   },
 

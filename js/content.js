@@ -202,6 +202,16 @@
           break; // Exit loop
        }
 
+       if (window.TelegramExporter.isFinished) {
+        logger.info("Scraping finished by user.");
+        break;
+       }
+
+       if (window.TelegramExporter.isPaused) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+       }
+
       let messageEl = document.querySelector(
         `[data-message-id="${currentMessageId}"]`
       );
@@ -265,6 +275,8 @@
 
   async function exportMessages(format = "txt") {
     window.TelegramExporter.isCancelled = false; // Reset cancellation flag
+    window.TelegramExporter.isPaused = false;
+    window.TelegramExporter.isFinished = false;
     window.TelegramExporter.currentExportFormat = format;
     try {
       dom.showLoading(true, `Preparing ${format.toUpperCase()} export...`);
