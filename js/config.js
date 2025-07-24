@@ -5,18 +5,41 @@ window.TelegramExporter = {};
 // Configuration object for the exporter.
 // These values can be tweaked to change the behavior of the script.
 window.TelegramExporter.config = {
-  // The number of messages to process in each batch.
-  chunkSize: 100,
-  // The base delay between processing each chunk of messages.
-  delayBetweenChunks: 500,
-  // A random delay added to the base delay to mimic human behavior.
-  maxRandomDelay: 1000,
-  // The interval at which to scroll the message list to load more messages.
-  autoScrollInterval: 200,
-  // The maximum number of scroll attempts before giving up.
-  maxScrollAttempts: 150, // Increased for long chats
-  scrollChunkSize: 600, // Pixels to scroll each step
-  scrollDelay: 800, // ms between scrolls
+  // Enhanced performance settings for large channels
+  chunkSize: 50, // Reduced for better memory management
+  batchSize: 20, // Process messages in smaller batches
+  delayBetweenChunks: 300, // Reduced delay for faster processing
+  maxRandomDelay: 500, // Reduced random delay
+  
+  // Intelligent scrolling configuration
+  autoScrollInterval: 150,
+  maxScrollAttempts: 300, // Increased for very large chats
+  scrollChunkSize: 800, // Optimized scroll distance
+  scrollDelay: 600, // Adaptive scroll delay
+  adaptiveScrolling: true, // Enable adaptive scrolling based on network speed
+  
+  // Network and timing optimizations
+  delayBetweenMessages: 200, // Reduced for faster processing
+  maxRetryAttempts: 3, // Retry failed message loads
+  networkTimeout: 5000, // Timeout for network operations
+  
+  // Memory management
+  memoryCleanupInterval: 100, // Clean up every 100 messages
+  maxMessagesInMemory: 1000, // Limit messages in memory
+  enableMemoryOptimization: true,
+  
+  // Viewport management
+  viewportBuffer: 5, // Number of screens to keep in viewport
+  lazyLoadThreshold: 10, // Messages to load ahead
+  
+  // Error handling and recovery
+  enableErrorRecovery: true,
+  maxConsecutiveErrors: 5,
+  errorRecoveryDelay: 2000,
+  
+  // Progress tracking
+  progressUpdateInterval: 10, // Update progress every N messages
+  
   // The format to use for links in the exported text.
   linkFormat: "[{text}]({url})",
   // Whether to merge adjacent links into a single link.
@@ -41,58 +64,68 @@ window.TelegramExporter.config = {
   audioPlaceholder: "🎵 [Audio]",
   stickerPlaceholder: "🏷️ [Sticker]",
   pollPlaceholder: "📊 [Poll]",
-  delayBetweenMessages: 1000, // The delay between scraping each message.
 };
 
-// Selectors for various elements in the Telegram web interface.
+// Enhanced selectors with fallbacks for different Telegram versions
 window.TelegramExporter.selectors = {
-  chatName: ".chat-info .peer-title, .ChatInfo .title",
-  messageList: ".messages-list, .MessageList",
-  messageSelector: ".Message",
-  contentSelector: ".text-content",
-  dateGroupSelector: ".sticky-date",
-  sender: ".message-author, .MessageSender, .sender-title",
-  time: ".message-time",
-  avatar: ".Avatar img, .avatar-media",
-  reactions: ".Reactions, .message-reactions",
-  reactionButton: ".message-reaction",
-  reactionStaticEmoji: ".ReactionStaticEmoji",
-  reactionCount: ".P2FqNJAi",
+  chatName: ".chat-info .peer-title, .ChatInfo .title, .chat-title, .peer-title",
+  messageList: ".messages-list, .MessageList, .messages-container",
+  messageSelector: ".Message, .message",
+  contentSelector: ".text-content, .message-text, .content-text",
+  dateGroupSelector: ".sticky-date, .date-group, .message-date",
+  sender: ".message-author, .MessageSender, .sender-title, .peer-title, .message-sender",
+  time: ".message-time, .time, .timestamp",
+  avatar: ".Avatar img, .avatar-media, .avatar img",
+  reactions: ".Reactions, .message-reactions, .reactions-container",
+  reactionButton: ".message-reaction, .reaction-button, .reaction",
+  reactionStaticEmoji: ".ReactionStaticEmoji, .reaction-emoji",
+  reactionCount: ".P2FqNJAi, .reaction-count, .count",
+  
+  // Enhanced scroll containers with multiple fallbacks
+  scrollContainer: [
+    ".messages-layout .scroller",
+    ".messages-container .scroller", 
+    ".MessageList .scroller",
+    ".messages-list",
+    ".chat-container .scroller",
+    ".messages-wrapper"
+  ],
+  
   forwarded: {
-    container: ".message-title",
-    title: ".forward-title",
-    from: ".sender-title",
+    container: ".message-title, .forward-container, .forwarded",
+    title: ".forward-title, .forwarded-title",
+    from: ".sender-title, .forwarded-from",
   },
   reply: {
-    container: ".message-subheader",
-    text: ".embedded-text-wrapper",
-    sender: ".embedded-sender",
+    container: ".message-subheader, .reply-container, .reply",
+    text: ".embedded-text-wrapper, .reply-text, .quoted-text",
+    sender: ".embedded-sender, .reply-sender, .quoted-sender",
   },
-  webPagePreview: ".WebPage",
+  webPagePreview: ".WebPage, .webpage-preview, .link-preview",
   media: {
-    image: '.full-media[src^="blob:"], img.message-photo',
-    video: "video",
-    videoDuration: ".message-media-duration",
-    gif: ".gif, .animation",
-    document: ".File",
-    documentTitle: ".file-title",
-    documentSubtitle: ".file-subtitle",
-    audio: ".audio-track",
-    sticker: ".sticker-media",
+    image: '.full-media[src^="blob:"], img.message-photo, .media-photo img, .photo img',
+    video: "video, .media-video video, .video-player video",
+    videoDuration: ".message-media-duration, .video-duration, .duration",
+    gif: ".gif, .animation, .media-gif",
+    document: ".File, .document, .media-document",
+    documentTitle: ".file-title, .document-title, .filename",
+    documentSubtitle: ".file-subtitle, .document-subtitle, .filesize",
+    audio: ".audio-track, .media-audio, .audio",
+    sticker: ".sticker-media, .sticker, .media-sticker",
   },
   emoji: {
-    standard: "img.emoji",
-    custom: ".custom-emoji.emoji",
+    standard: "img.emoji, .emoji img",
+    custom: ".custom-emoji.emoji, .custom-emoji",
   },
   poll: {
-    container: ".Poll",
-    question: ".poll-question",
-    type: ".poll-type",
-    answers: ".poll-answers",
-    results: ".poll-results",
-    option: ".PollOption",
-    optionText: ".poll-option-text",
-    optionPercent: ".poll-option-share",
-    optionChosen: ".poll-option-chosen",
+    container: ".Poll, .poll, .media-poll",
+    question: ".poll-question, .question",
+    type: ".poll-type, .type",
+    answers: ".poll-answers, .answers",
+    results: ".poll-results, .results",
+    option: ".PollOption, .poll-option, .option",
+    optionText: ".poll-option-text, .option-text",
+    optionPercent: ".poll-option-share, .option-percent, .percentage",
+    optionChosen: ".poll-option-chosen, .chosen, .selected",
   },
 };
